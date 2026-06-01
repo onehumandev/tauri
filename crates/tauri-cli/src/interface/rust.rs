@@ -57,6 +57,10 @@ pub struct Options {
   pub no_watch: bool,
   pub skip_stapling: bool,
   pub additional_watch_folders: Vec<PathBuf>,
+  /// Whether to run the dev app under the macOS App Sandbox.
+  ///
+  /// `Some(value)` overrides the `bundle > macOS > sandbox` configuration, `None` defers to it.
+  pub macos_sandbox: Option<bool>,
 }
 
 impl From<crate::build::Options> for Options {
@@ -71,6 +75,7 @@ impl From<crate::build::Options> for Options {
       no_watch: true,
       skip_stapling: options.skip_stapling,
       additional_watch_folders: Vec::new(),
+      macos_sandbox: None,
     }
   }
 }
@@ -101,6 +106,7 @@ impl From<crate::dev::Options> for Options {
       no_watch: options.no_watch,
       skip_stapling: false,
       additional_watch_folders: options.additional_watch_folders,
+      macos_sandbox: Some(options.macos_sandbox),
     }
   }
 }
@@ -211,7 +217,7 @@ impl Rust {
 
     if options.no_watch {
       let (tx, rx) = sync_channel(1);
-      self.run_dev(options, &run_args, move |status, reason| {
+      self.run_dev_dispatch(options, &run_args, config, dirs, move |status, reason| {
         on_exit(status, reason);
         tx.send(()).unwrap();
       })?;
@@ -224,12 +230,16 @@ impl Rust {
         config,
         &options.additional_watch_folders,
         &merge_configs,
-        |rust: &mut Rust, _config| {
+        |rust: &mut Rust, config| {
           let on_exit = on_exit.clone();
           rust
-            .run_dev(options.clone(), &run_args, move |status, reason| {
-              on_exit(status, reason)
-            })
+            .run_dev_dispatch(
+              options.clone(),
+              &run_args,
+              config,
+              dirs,
+              move |status, reason| on_exit(status, reason),
+            )
             .map(|child| Box::new(child) as Box<dyn DevProcess + Send>)
         },
         dirs,
@@ -505,6 +515,38 @@ impl Rust {
       self.config_features.clone(),
       on_exit,
     )
+  }
+
+  /// Runs the dev app, short-circuiting to the macOS App Sandbox path when enabled.
+  ///
+  /// The `bundle > macOS > sandbox` configuration value is read only inside the macOS-gated
+  /// arm; cross-platform code inspects nothing but the explicitly macOS-named `macos_sandbox`
+  /// CLI override.
+  fn run_dev_dispatch<F: Fn(Option<i32>, ExitReason) + Send + Sync + 'static>(
+    &mut self,
+    options: Options,
+    run_args: &[String],
+    config: &ConfigMetadata,
+    dirs: &Dirs,
+    on_exit: F,
+  ) -> crate::Result<desktop::DevChild> {
+    #[cfg(target_os = "macos")]
+    {
+      if options.macos_sandbox.unwrap_or(config.bundle.macos.sandbox) {
+        return desktop::macos_sandbox::run_dev(self, options, run_args, config, dirs, on_exit);
+      }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+      let _ = (config, dirs);
+      if options.macos_sandbox == Some(true) {
+        log::warn!(
+          "macOS App Sandbox dev mode is only supported on macOS hosts; running the dev app without it."
+        );
+      }
+    }
+
+    self.run_dev(options, run_args, on_exit)
   }
 
   fn run_dev_watcher<

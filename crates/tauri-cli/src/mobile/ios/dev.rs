@@ -132,6 +132,7 @@ impl From<Options> for DevOptions {
       no_dev_server: options.no_dev_server,
       no_dev_server_wait: options.no_dev_server_wait,
       port: options.port,
+      macos_sandbox: false,
       host: options.host.0.unwrap_or_default(),
     }
   }

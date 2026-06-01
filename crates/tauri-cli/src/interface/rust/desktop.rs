@@ -42,6 +42,11 @@ impl DevProcess for DevChild {
   }
 }
 
+/// macOS App Sandbox support for `tauri dev`. All sandbox-specific code lives here and is
+/// only ever entered through `Rust::run_dev_dispatch` on macOS hosts.
+#[cfg(target_os = "macos")]
+pub mod macos_sandbox;
+
 pub fn run_dev<F: Fn(Option<i32>, ExitReason) + Send + Sync + 'static>(
   options: Options,
   run_args: &[String],
@@ -50,7 +55,6 @@ pub fn run_dev<F: Fn(Option<i32>, ExitReason) + Send + Sync + 'static>(
   on_exit: F,
 ) -> crate::Result<DevChild> {
   let mut dev_cmd = cargo_command(true, options, available_targets, config_features)?;
-  let runner = dev_cmd.get_program().to_string_lossy().into_owned();
 
   dev_cmd
     .env(
@@ -70,11 +74,22 @@ pub fn run_dev<F: Fn(Option<i32>, ExitReason) + Send + Sync + 'static>(
   dev_cmd.arg("--color");
   dev_cmd.arg("always");
 
-  dev_cmd.stdout(os_pipe::dup_stdout().unwrap());
-  dev_cmd.stderr(Stdio::piped());
-
   dev_cmd.arg("--");
   dev_cmd.args(run_args);
+
+  spawn_dev_process(dev_cmd, on_exit)
+}
+
+/// Spawns a dev process (either `cargo run` or a sandboxed `.app` binary), wiring up
+/// stderr streaming and the exit-handling thread shared by both code paths.
+fn spawn_dev_process<F: Fn(Option<i32>, ExitReason) + Send + Sync + 'static>(
+  mut dev_cmd: Command,
+  on_exit: F,
+) -> crate::Result<DevChild> {
+  let runner = dev_cmd.get_program().to_string_lossy().into_owned();
+
+  dev_cmd.stdout(os_pipe::dup_stdout().unwrap());
+  dev_cmd.stderr(Stdio::piped());
 
   let manually_killed_app = Arc::new(AtomicBool::default());
   let manually_killed_app_ = manually_killed_app.clone();

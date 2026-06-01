@@ -92,6 +92,16 @@ pub struct Options {
   #[clap(long, env = "TAURI_CLI_PORT")]
   pub port: Option<u16>,
 
+  /// Run the app under the macOS App Sandbox for this dev session.
+  ///
+  /// Overrides the `bundle > macOS > sandbox` configuration value.
+  /// The development binary is wrapped in a minimal `.app` bundle and code signed
+  /// (ad-hoc by default) with the configured entitlements so that `tauri dev`
+  /// enforces the same sandbox restrictions as a release build.
+  /// Has no effect on non-macOS platforms.
+  #[clap(long = "macos-sandbox")]
+  pub macos_sandbox: bool,
+
   #[clap(skip)]
   pub host: Option<IpAddr>,
 }

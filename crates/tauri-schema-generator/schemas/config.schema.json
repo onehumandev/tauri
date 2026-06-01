@@ -123,7 +123,8 @@
           },
           "files": {},
           "hardenedRuntime": true,
-          "minimumSystemVersion": "10.13"
+          "minimumSystemVersion": "10.13",
+          "sandbox": false
         },
         "targets": "all",
         "useLocalToolsDir": false,
@@ -2289,7 +2290,8 @@
             },
             "files": {},
             "hardenedRuntime": true,
-            "minimumSystemVersion": "10.13"
+            "minimumSystemVersion": "10.13",
+            "sandbox": false
           },
           "allOf": [
             {
@@ -3704,6 +3706,11 @@
             "string",
             "null"
           ]
+        },
+        "sandbox": {
+          "description": "Whether to run the app under the macOS App Sandbox during `tauri dev`.\n\n When enabled, the development binary is wrapped in a minimal `.app` bundle and\n code signed (ad-hoc by default) with the entitlements configured in `entitlements`,\n so that `tauri dev` enforces the same sandbox restrictions as a release build.\n\n This only takes effect on macOS and is ignored on other platforms.",
+          "default": false,
+          "type": "boolean"
         },
         "infoPlist": {
           "description": "Path to a Info.plist file to merge with the default Info.plist.\n\n Note that Tauri also looks for a `Info.plist` file in the same directory as the Tauri configuration file.",

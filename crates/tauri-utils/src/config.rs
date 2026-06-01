@@ -659,6 +659,15 @@ pub struct MacConfig {
   pub provider_short_name: Option<String>,
   /// Path to the entitlements file.
   pub entitlements: Option<String>,
+  /// Whether to run the app under the macOS App Sandbox during `tauri dev`.
+  ///
+  /// When enabled, the development binary is wrapped in a minimal `.app` bundle and
+  /// code signed (ad-hoc by default) with the entitlements configured in `entitlements`,
+  /// so that `tauri dev` enforces the same sandbox restrictions as a release build.
+  ///
+  /// This only takes effect on macOS and is ignored on other platforms.
+  #[serde(default)]
+  pub sandbox: bool,
   /// Path to a Info.plist file to merge with the default Info.plist.
   ///
   /// Note that Tauri also looks for a `Info.plist` file in the same directory as the Tauri configuration file.
@@ -682,6 +691,7 @@ impl Default for MacConfig {
       hardened_runtime: true,
       provider_short_name: None,
       entitlements: None,
+      sandbox: false,
       info_plist: None,
       dmg: Default::default(),
     }
